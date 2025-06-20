@@ -1,0 +1,10 @@
+[project]
+name = "icetime"
+version = "1.0.0"
+description = "fetch, process and persist nhl stats from the nhl api"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "typer",
+    "requests",
+]
