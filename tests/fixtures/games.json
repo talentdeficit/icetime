@@ -1,0 +1,35 @@
+{
+  "data": [
+    {
+      "id": 1917020001,
+      "easternStartTime": "1917-12-19T20:00:00",
+      "gameDate": "1917-12-19",
+      "gameNumber": 1,
+      "gameScheduleStateId": 1,
+      "gameStateId": 7,
+      "gameType": 2,
+      "homeScore": 4,
+      "homeTeamId": 36,
+      "period": 3,
+      "season": 19171918,
+      "visitingScore": 7,
+      "visitingTeamId": 8
+    },
+    {
+      "id": 2024200007,
+      "easternStartTime": "2025-02-20T20:00:00",
+      "gameDate": "2025-02-20",
+      "gameNumber": 7,
+      "gameScheduleStateId": 1,
+      "gameStateId": 7,
+      "gameType": 20,
+      "homeScore": 2,
+      "homeTeamId": 67,
+      "period": 4,
+      "season": 20242025,
+      "visitingScore": 3,
+      "visitingTeamId": 60
+    }
+  ],
+  "total": 2
+}
