@@ -138,27 +138,41 @@ class Player(BaseModel):
     is_active: bool = Field(alias="isActive")
     current_team_id: Optional[int] = Field(alias="currentTeamId", default=None)
     current_team_abbrev: Optional[str] = Field(alias="currentTeamAbbrev", default=None)
-    full_team_name: str = Field(alias=AliasPath("fullTeamName", "default"))
-    team_common_name: str = Field(alias=AliasPath("teamCommonName", "default"))
-    team_place_name: str = Field(
-        alias=AliasPath("teamPlaceNameWithPreposition", "default")
+    full_team_name: Optional[str] = Field(
+        alias=AliasPath("fullTeamName", "default"), default=None
     )
-    first_name: str = Field(alias=AliasPath("firstName", "default"))
-    last_name: str = Field(alias=AliasPath("lastName", "default"))
-    team_logo: str = Field(alias="teamLogo")
-    sweater_number: int = Field(alias="sweaterNumber")
-    position: str
-    headshot: str
-    hero_image: str = Field(alias="heroImage")
-    height_in_inches: int = Field(alias="heightInInches")
-    height_in_centimeters: int = Field(alias="heightInCentimeters")
-    weight_in_pounds: int = Field(alias="weightInPounds")
-    weight_in_kilograms: int = Field(alias="weightInKilograms")
-    birth_date: str = Field(alias="birthDate")
-    birth_city: str = Field(alias=AliasPath("birthCity", "default"))
-    birth_state_province: str = Field(alias=AliasPath("birthStateProvince", "default"))
-    birth_country: str = Field(alias="birthCountry")
-    shoots_catches: str = Field(alias="shootsCatches")
+    team_common_name: Optional[str] = Field(
+        alias=AliasPath("teamCommonName", "default"), default=None
+    )
+    team_place_name: Optional[str] = Field(
+        alias=AliasPath("teamPlaceNameWithPreposition", "default"), default=None
+    )
+    first_name: Optional[str] = Field(
+        alias=AliasPath("firstName", "default"), default=None
+    )
+    last_name: Optional[str] = Field(
+        alias=AliasPath("lastName", "default"), default=None
+    )
+    team_logo: Optional[str] = Field(alias="teamLogo", default=None)
+    sweater_number: Optional[int] = Field(alias="sweaterNumber", default=None)
+    position: Optional[str] = None
+    headshot: Optional[str] = None
+    hero_image: Optional[str] = Field(alias="heroImage", default=None)
+    height_in_inches: Optional[int] = Field(alias="heightInInches", default=None)
+    height_in_centimeters: Optional[int] = Field(
+        alias="heightInCentimeters", default=None
+    )
+    weight_in_pounds: Optional[int] = Field(alias="weightInPounds", default=None)
+    weight_in_kilograms: Optional[int] = Field(alias="weightInKilograms", default=None)
+    birth_date: Optional[str] = Field(alias="birthDate", default=None)
+    birth_city: Optional[str] = Field(
+        alias=AliasPath("birthCity", "default"), default=None
+    )
+    birth_state_province: Optional[str] = Field(
+        alias=AliasPath("birthStateProvince", "default"), default=None
+    )
+    birth_country: Optional[str] = Field(alias="birthCountry", default=None)
+    shoots_catches: Optional[str] = Field(alias="shootsCatches", default=None)
     draft_year: Optional[int] = Field(
         alias=AliasPath("draftDetails", "year"), default=None
     )
