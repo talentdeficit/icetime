@@ -452,8 +452,10 @@ class TestCLI:
     @patch("icetime.cli.get_seasons")
     @patch("icetime.cli.get_pbp")
     @patch("icetime.cli.get_shifts")
+    @patch("icetime.cli.get_rosters")
     def test_get_all_command(
         self,
+        mock_get_rosters,
         mock_get_shifts,
         mock_get_pbp,
         mock_get_seasons,
@@ -469,6 +471,7 @@ class TestCLI:
         mock_get_seasons.assert_called_once_with(False, "./data")
         mock_get_pbp.assert_called_once_with(20232024, False, "./data")
         mock_get_shifts.assert_called_once_with(20232024, False, "./data")
+        mock_get_rosters.assert_called_once_with(20232024, False, "./data")
 
     @pytest.mark.unit
     @patch("icetime.cli.get_teams")
@@ -476,8 +479,10 @@ class TestCLI:
     @patch("icetime.cli.get_seasons")
     @patch("icetime.cli.get_pbp")
     @patch("icetime.cli.get_shifts")
+    @patch("icetime.cli.get_rosters")
     def test_get_all_command_with_options(
         self,
+        mock_get_rosters,
         mock_get_shifts,
         mock_get_pbp,
         mock_get_seasons,
@@ -496,6 +501,7 @@ class TestCLI:
         mock_get_seasons.assert_called_once_with(True, "/custom")
         mock_get_pbp.assert_called_once_with(20232024, True, "/custom")
         mock_get_shifts.assert_called_once_with(20232024, True, "/custom")
+        mock_get_rosters.assert_called_once_with(20232024, True, "/custom")
 
     @pytest.mark.unit
     @patch("icetime.cli.StatsApi")

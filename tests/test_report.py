@@ -33,15 +33,15 @@ class TestFullFatProgress:
             # Should create Progress instance and start it
             mock_progress_class.assert_called_once()
             mock_progress_instance.start.assert_called_once()
-            assert result == mock_progress_instance
-            assert progress.progress == mock_progress_instance
+            assert result is progress
+            assert progress._progress == mock_progress_instance
 
     @pytest.mark.unit
     def test_context_manager_exit(self):
         """Test FullFatProgress __exit__ method."""
         progress = FullFatProgress()
         mock_progress_instance = MagicMock()
-        progress.progress = mock_progress_instance
+        progress._progress = mock_progress_instance
 
         # Test __exit__
         progress.__exit__(None, None, None)
@@ -53,7 +53,7 @@ class TestFullFatProgress:
         progress = FullFatProgress()
         mock_progress_instance = MagicMock()
         mock_progress_instance.add_task.return_value = 42
-        progress.progress = mock_progress_instance
+        progress._progress = mock_progress_instance
 
         result = progress.add_task(
             description="Test task", total=100, some_kwarg="value"
@@ -69,7 +69,7 @@ class TestFullFatProgress:
         """Test FullFatProgress update method."""
         progress = FullFatProgress()
         mock_progress_instance = MagicMock()
-        progress.progress = mock_progress_instance
+        progress._progress = mock_progress_instance
 
         progress.update(task_id=1, advance=1, description="Updated")
 

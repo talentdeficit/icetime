@@ -13,22 +13,22 @@ class FullFatProgress:
     """Progress class that uses rich.Progress for detailed output"""
 
     def __enter__(self):
-        self.progress = Progress(
+        self._progress = Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
             MofNCompleteColumn(),
         )
-        self.progress.start()
-        return self.progress
+        self._progress.start()
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.progress.stop()
+        self._progress.stop()
 
-    def add_task(self, description=None, total=None, **kwargs):
-        return self.progress.add_task(description=description, total=total, **kwargs)
+    def add_task(self, *args, **kwargs):
+        return self._progress.add_task(*args, **kwargs)
 
     def update(self, task_id, **kwargs):
-        self.progress.update(task_id, **kwargs)
+        self._progress.update(task_id, **kwargs)
 
 
 class NoOpProgress:
