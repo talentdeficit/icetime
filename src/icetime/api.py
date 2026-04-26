@@ -21,62 +21,30 @@ class StatsApi:
         self.__stats_base_url = stats_base_url
         self.__web_base_url = web_base_url
 
-    @lru_cache(maxsize=1)
-    def get_teams(self) -> List[Team]:
-        """Fetch all NHL teams data (cached)."""
-        url = f"{self.__stats_base_url}/team"
+    def _fetch_sorted_list(self, url: str, model_class) -> list:
         response = self.session.get(url)
         response.raise_for_status()
         data = response.json()
-
-        # Sort the data array by id field
-        if "data" in data and isinstance(data["data"], list):
-            data["data"] = sorted(data["data"], key=lambda x: x.get("id", 0))
-
-        # Convert to list of Team models
-        if "data" in data and isinstance(data["data"], list):
-            teams = [Team(**team) for team in data["data"]]
-            return teams
-        else:
+        items = data.get("data", [])
+        if not isinstance(items, list):
             return []
+        items.sort(key=lambda x: x.get("id", 0))
+        return [model_class(**item) for item in items]
+
+    @lru_cache(maxsize=1)
+    def get_teams(self) -> List[Team]:
+        """Fetch all NHL teams data (cached)."""
+        return self._fetch_sorted_list(f"{self.__stats_base_url}/team", Team)
 
     @lru_cache(maxsize=1)
     def get_games(self) -> List[Game]:
         """Fetch all NHL games data (cached)."""
-        url = f"{self.__stats_base_url}/game"
-        response = self.session.get(url)
-        response.raise_for_status()
-        data = response.json()
-
-        # Sort the data array by id field
-        if "data" in data and isinstance(data["data"], list):
-            data["data"] = sorted(data["data"], key=lambda x: x.get("id", 0))
-
-        # Convert to list of Game models
-        if "data" in data and isinstance(data["data"], list):
-            games = [Game(**game) for game in data["data"]]
-            return games
-        else:
-            return []
+        return self._fetch_sorted_list(f"{self.__stats_base_url}/game", Game)
 
     @lru_cache(maxsize=1)
     def get_seasons(self) -> List[Season]:
         """Fetch all NHL seasons data (cached)."""
-        url = f"{self.__stats_base_url}/season"
-        response = self.session.get(url)
-        response.raise_for_status()
-        data = response.json()
-
-        # Sort the data array by id field
-        if "data" in data and isinstance(data["data"], list):
-            data["data"] = sorted(data["data"], key=lambda x: x.get("id", 0))
-
-        # Convert to list of Season models
-        if "data" in data and isinstance(data["data"], list):
-            seasons = [Season(**season) for season in data["data"]]
-            return seasons
-        else:
-            return []
+        return self._fetch_sorted_list(f"{self.__stats_base_url}/season", Season)
 
     def get_games_by_season(self, season: int) -> List[Game]:
         """Fetch games filtered by season."""

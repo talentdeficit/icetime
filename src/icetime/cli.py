@@ -11,6 +11,23 @@ app = typer.Typer()
 api = StatsApi()
 
 
+def _save_list(
+    quiet, output_path, task_name, fetch_fn, filename, model_type, error_label
+):
+    with reporter(quiet) as progress:
+        try:
+            task = progress.add_task(description=f"Processing {task_name}", total=None)
+            items = fetch_fn()
+            progress.update(task, total=len(items))
+            Path(output_path).mkdir(parents=True, exist_ok=True)
+            with open(Path(output_path) / filename, "wb") as f:
+                f.write(TypeAdapter(List[model_type]).dump_json(items, indent=2))
+            progress.update(task, completed=len(items))
+        except Exception as e:
+            typer.echo(f"Error fetching {error_label}: {e}", err=True)
+            raise typer.Exit(1)
+
+
 @app.callback(invoke_without_command=True)
 def main(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is None:
@@ -28,28 +45,9 @@ def get_teams(
     ),
 ) -> None:
     """List all NHL teams."""
-    with reporter(quiet) as progress:
-        try:
-            task = progress.add_task(description="Processing get-teams", total=None)
-
-            teams = api.get_teams()
-            progress.update(task, total=len(teams))
-
-            # Create output directory if it doesn't exist
-            Path(output_path).mkdir(parents=True, exist_ok=True)
-
-            # Write to file
-            output_file = Path(output_path) / "teams.json"
-            with open(output_file, "wb") as f:
-                teams_adapter = TypeAdapter(List[Team])
-                teams_json_bytes = teams_adapter.dump_json(teams, indent=2)
-                f.write(teams_json_bytes)
-
-            progress.update(task, completed=len(teams))
-
-        except Exception as e:
-            typer.echo(f"Error fetching teams: {e}", err=True)
-            raise typer.Exit(1)
+    _save_list(
+        quiet, output_path, "get-teams", api.get_teams, "teams.json", Team, "teams"
+    )
 
 
 @app.command()
@@ -62,28 +60,9 @@ def get_games(
     ),
 ) -> None:
     """List all NHL games."""
-    with reporter(quiet) as progress:
-        try:
-            task = progress.add_task(description="Processing get-games", total=None)
-
-            games = api.get_games()
-            progress.update(task, total=len(games))
-
-            # Create output directory if it doesn't exist
-            Path(output_path).mkdir(parents=True, exist_ok=True)
-
-            # Write to file
-            output_file = Path(output_path) / "games.json"
-            with open(output_file, "wb") as f:
-                games_adapter = TypeAdapter(List[Game])
-                games_json_bytes = games_adapter.dump_json(games, indent=2)
-                f.write(games_json_bytes)
-
-            progress.update(task, completed=len(games))
-
-        except Exception as e:
-            typer.echo(f"Error fetching games: {e}", err=True)
-            raise typer.Exit(1)
+    _save_list(
+        quiet, output_path, "get-games", api.get_games, "games.json", Game, "games"
+    )
 
 
 @app.command()
@@ -96,28 +75,15 @@ def get_seasons(
     ),
 ) -> None:
     """List all NHL seasons."""
-    with reporter(quiet) as progress:
-        try:
-            task = progress.add_task(description="Processing get-seasons", total=None)
-
-            seasons = api.get_seasons()
-            progress.update(task, total=len(seasons))
-
-            # Create output directory if it doesn't exist
-            Path(output_path).mkdir(parents=True, exist_ok=True)
-
-            # Write to file
-            output_file = Path(output_path) / "season.json"
-            with open(output_file, "wb") as f:
-                seasons_adapter = TypeAdapter(List[Season])
-                seasons_json_bytes = seasons_adapter.dump_json(seasons, indent=2)
-                f.write(seasons_json_bytes)
-
-            progress.update(task, completed=len(seasons))
-
-        except Exception as e:
-            typer.echo(f"Error fetching season: {e}", err=True)
-            raise typer.Exit(1)
+    _save_list(
+        quiet,
+        output_path,
+        "get-seasons",
+        api.get_seasons,
+        "seasons.json",
+        Season,
+        "seasons",
+    )
 
 
 @app.command()
@@ -171,7 +137,7 @@ def get_pbp(
                 f.write(games_json_bytes)
 
         except Exception as e:
-            typer.echo(f"Error fetching games: {e}", err=True)
+            typer.echo(f"Error fetching play-by-play: {e}", err=True)
             raise typer.Exit(1)
 
 
@@ -223,7 +189,7 @@ def get_shifts(
                 f.write(shifts_json_bytes)
 
         except Exception as e:
-            typer.echo(f"Error fetching games: {e}", err=True)
+            typer.echo(f"Error fetching shifts: {e}", err=True)
             raise typer.Exit(1)
 
 
@@ -291,12 +257,13 @@ def get_all(
         "./data", "--output-path", help="Directory to save output files"
     ),
 ) -> None:
-    """Get all NHL teams, games, and season data."""
+    """Get all NHL data for a season."""
     get_teams(quiet, output_path)
     get_games(quiet, output_path)
     get_seasons(quiet, output_path)
     get_pbp(season, quiet, output_path)
     get_shifts(season, quiet, output_path)
+    get_rosters(season, quiet, output_path)
 
 
 @app.command()
