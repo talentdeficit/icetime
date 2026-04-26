@@ -118,7 +118,7 @@ class Shift(BaseModel):
     event_number: Optional[int] = Field(alias="eventNumber", default=None)
     first_name: str = Field(alias="firstName")
     game_id: int = Field(alias="gameId")
-    hex_value: str = Field(alias="hexValue")
+    hex_value: Optional[str] = Field(alias="hexValue", default=None)
     last_name: str = Field(alias="lastName")
     period: int
     player_id: int = Field(alias="playerId")

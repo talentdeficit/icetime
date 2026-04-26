@@ -408,3 +408,182 @@ class TestStatsApi:
             api = StatsApi()
             with pytest.raises(requests.exceptions.HTTPError):
                 api.get_roster_by_season("TOR", 20232024)
+
+    @pytest.mark.unit
+    def test_get_retries_on_429_then_succeeds(self, mocker):
+        """Test _get retries after a 429 and returns the successful response."""
+        mocker.patch("icetime.api.time.sleep")
+        url = "https://api.nhle.com/stats/rest/en/team"
+        with requests_mock.Mocker() as m:
+            m.get(
+                url,
+                [
+                    {"status_code": 429, "headers": {"Retry-After": "0"}},
+                    {"json": {"data": []}, "status_code": 200},
+                ],
+            )
+
+            api = StatsApi(request_delay=0)
+            response = api._get(url)
+
+            assert response.status_code == 200
+            assert m.call_count == 2
+
+    @pytest.mark.unit
+    def test_get_retries_up_to_ten_times_on_429(self, mocker):
+        """Test _get raises after exhausting 10 retries on 429."""
+        mocker.patch("icetime.api.time.sleep")
+        url = "https://api.nhle.com/stats/rest/en/team"
+        with requests_mock.Mocker() as m:
+            m.get(url, status_code=429, headers={"Retry-After": "0"})
+
+            api = StatsApi(request_delay=0)
+            with pytest.raises(requests.exceptions.HTTPError):
+                api._get(url)
+
+            assert m.call_count == 10
+
+    @pytest.mark.unit
+    def test_get_uses_retry_after_header(self, mocker):
+        """Test _get respects the Retry-After header when larger than backoff."""
+        mock_sleep = mocker.patch("icetime.api.time.sleep")
+        url = "https://api.nhle.com/stats/rest/en/team"
+        with requests_mock.Mocker() as m:
+            m.get(
+                url,
+                [
+                    {"status_code": 429, "headers": {"Retry-After": "30"}},
+                    {"json": {"data": []}, "status_code": 200},
+                ],
+            )
+
+            api = StatsApi(request_delay=0)
+            api._get(url)
+
+            mock_sleep.assert_called_once_with(30)
+
+    @pytest.mark.unit
+    def test_get_uses_backoff_when_retry_after_is_zero(self, mocker):
+        """Test _get uses exponential backoff when Retry-After is 0 or absent."""
+        mock_sleep = mocker.patch("icetime.api.time.sleep")
+        url = "https://api.nhle.com/stats/rest/en/team"
+        with requests_mock.Mocker() as m:
+            m.get(
+                url,
+                [
+                    {"status_code": 429, "headers": {"Retry-After": "0"}},
+                    {"status_code": 429, "headers": {"Retry-After": "0"}},
+                    {"json": {"data": []}, "status_code": 200},
+                ],
+            )
+
+            api = StatsApi(request_delay=0)
+            api._get(url)
+
+            assert mock_sleep.call_count == 2
+            mock_sleep.assert_any_call(2)
+            mock_sleep.assert_any_call(4)
+
+    @pytest.mark.unit
+    def test_get_retries_on_connection_error_then_succeeds(self, mocker):
+        """Test _get retries after a ConnectionError and returns the successful response."""
+        mock_sleep = mocker.patch("icetime.api.time.sleep")
+        url = "https://api.nhle.com/stats/rest/en/team"
+        with requests_mock.Mocker() as m:
+            m.get(
+                url,
+                [
+                    {"exc": requests.exceptions.ConnectionError("reset")},
+                    {"json": {"data": []}, "status_code": 200},
+                ],
+            )
+
+            api = StatsApi(request_delay=0)
+            response = api._get(url)
+
+            assert response.status_code == 200
+            assert m.call_count == 2
+            mock_sleep.assert_called_once_with(2)
+
+    @pytest.mark.unit
+    def test_get_raises_after_exhausting_connection_error_retries(self, mocker):
+        """Test _get raises ConnectionError after exhausting all retries."""
+        mocker.patch("icetime.api.time.sleep")
+        url = "https://api.nhle.com/stats/rest/en/team"
+        with requests_mock.Mocker() as m:
+            m.get(url, exc=requests.exceptions.ConnectionError("reset"))
+
+            api = StatsApi(request_delay=0)
+            with pytest.raises(requests.exceptions.ConnectionError):
+                api._get(url)
+
+            assert m.call_count == 10
+
+    @pytest.mark.unit
+    def test_get_play_by_play_retries_on_429(self, mocker):
+        """Test get_play_by_play retries on 429 before succeeding."""
+        mocker.patch("icetime.api.time.sleep")
+        game = Game(
+            id=2024030121,
+            easternStartTime="2024-05-01T20:00:00Z",
+            gameDate="2024-05-01",
+            gameNumber=1,
+            gameScheduleStateId=4,
+            gameStateId=7,
+            gameType=3,
+            homeScore=3,
+            homeTeamId=6,
+            season=20232024,
+            visitingScore=2,
+            visitingTeamId=10,
+        )
+        url = "https://api-web.nhle.com/v1/gamecenter/2024030121/play-by-play"
+        with requests_mock.Mocker() as m:
+            m.get(
+                url,
+                [
+                    {"status_code": 429, "headers": {"Retry-After": "0"}},
+                    {"json": self._pbp_payload(), "status_code": 200},
+                ],
+            )
+
+            api = StatsApi(request_delay=0)
+            result = api.get_play_by_play(game)
+
+            assert result is not None
+            assert m.call_count == 2
+
+    def _pbp_payload(self):
+        return {
+            "id": 2024030121,
+            "season": 20232024,
+            "gameType": 3,
+            "gameDate": "2024-05-01",
+            "venue": {"default": "TD Garden"},
+            "venueLocation": {"default": "Boston"},
+            "startTimeUTC": "2024-05-02T00:00:00Z",
+            "easternUTCOffset": "-04:00",
+            "venueUTCOffset": "-04:00",
+            "gameState": "OFF",
+            "gameScheduleState": "OK",
+            "periodDescriptor": {"number": 3, "periodType": "REG"},
+            "awayTeam": {
+                "id": 10,
+                "commonName": {"default": "Leafs"},
+                "abbrev": "TOR",
+                "logo": "https://example.com/tor.svg",
+                "darkLogo": "https://example.com/tor_dark.svg",
+                "score": 2,
+                "sog": 25,
+            },
+            "homeTeam": {
+                "id": 6,
+                "commonName": {"default": "Bruins"},
+                "abbrev": "BOS",
+                "logo": "https://example.com/bos.svg",
+                "darkLogo": "https://example.com/bos_dark.svg",
+                "score": 3,
+                "sog": 30,
+            },
+            "clock": {"timeRemaining": "00:00"},
+        }
