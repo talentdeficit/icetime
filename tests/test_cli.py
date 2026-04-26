@@ -1,3 +1,4 @@
+import json
 import pytest
 import tempfile
 from pathlib import Path
@@ -453,8 +454,10 @@ class TestCLI:
     @patch("icetime.cli.get_pbp")
     @patch("icetime.cli.get_shifts")
     @patch("icetime.cli.get_rosters")
+    @patch("icetime.cli.get_players")
     def test_get_all_command(
         self,
+        mock_get_players,
         mock_get_rosters,
         mock_get_shifts,
         mock_get_pbp,
@@ -472,6 +475,7 @@ class TestCLI:
         mock_get_pbp.assert_called_once_with(20232024, False, "./data")
         mock_get_shifts.assert_called_once_with(20232024, False, "./data")
         mock_get_rosters.assert_called_once_with(20232024, False, "./data")
+        mock_get_players.assert_called_once_with(None, False, "./data")
 
     @pytest.mark.unit
     @patch("icetime.cli.get_teams")
@@ -480,8 +484,10 @@ class TestCLI:
     @patch("icetime.cli.get_pbp")
     @patch("icetime.cli.get_shifts")
     @patch("icetime.cli.get_rosters")
+    @patch("icetime.cli.get_players")
     def test_get_all_command_with_options(
         self,
+        mock_get_players,
         mock_get_rosters,
         mock_get_shifts,
         mock_get_pbp,
@@ -502,6 +508,7 @@ class TestCLI:
         mock_get_pbp.assert_called_once_with(20232024, True, "/custom")
         mock_get_shifts.assert_called_once_with(20232024, True, "/custom")
         mock_get_rosters.assert_called_once_with(20232024, True, "/custom")
+        mock_get_players.assert_called_once_with(None, True, "/custom")
 
     @pytest.mark.unit
     @patch("icetime.cli.StatsApi")
@@ -656,6 +663,136 @@ class TestCLI:
 
         assert result.exit_code == 1
         assert "Error fetching roster for team T1: General error" in result.stderr
+
+    @pytest.mark.unit
+    def test_get_players_requires_season_without_rosters(self):
+        """Test get_players exits with error when rosters.json is missing and no --season."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = self.runner.invoke(
+                app, ["get-players", "--output-path", temp_dir, "--quiet"]
+            )
+
+        assert result.exit_code == 1
+        assert "--season is required" in result.stderr
+
+    @pytest.mark.unit
+    def test_get_players_success_with_existing_rosters(self):
+        """Test get_players uses existing rosters.json without fetching rosters."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            rosters = [
+                {"team_id": 1, "player_id": 123},
+                {"team_id": 2, "player_id": 456},
+            ]
+            Path(temp_dir, "rosters.json").write_bytes(json.dumps(rosters).encode())
+
+            mock_api_instance = MagicMock()
+            mock_api_instance.get_player.return_value = None
+
+            with patch("icetime.cli.api", mock_api_instance):
+                result = self.runner.invoke(
+                    app, ["get-players", "--output-path", temp_dir, "--quiet"]
+                )
+
+            assert result.exit_code == 0
+            mock_api_instance.get_player.assert_any_call(123)
+            mock_api_instance.get_player.assert_any_call(456)
+            assert (Path(temp_dir) / "players.json").exists()
+
+    @pytest.mark.unit
+    def test_get_players_deduplicates_player_ids(self):
+        """Test get_players only fetches each unique player ID once."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            rosters = [
+                {"team_id": 1, "player_id": 123},
+                {"team_id": 2, "player_id": 123},
+                {"team_id": 1, "player_id": 456},
+            ]
+            Path(temp_dir, "rosters.json").write_bytes(json.dumps(rosters).encode())
+
+            mock_api_instance = MagicMock()
+            mock_api_instance.get_player.return_value = None
+
+            with patch("icetime.cli.api", mock_api_instance):
+                result = self.runner.invoke(
+                    app, ["get-players", "--output-path", temp_dir, "--quiet"]
+                )
+
+            assert result.exit_code == 0
+            assert mock_api_instance.get_player.call_count == 2
+
+    @pytest.mark.unit
+    def test_get_players_handles_not_found_error(self):
+        """Test get_players skips players that return NotFoundError."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            rosters = [
+                {"team_id": 1, "player_id": 123},
+                {"team_id": 1, "player_id": 456},
+            ]
+            Path(temp_dir, "rosters.json").write_bytes(json.dumps(rosters).encode())
+
+            mock_api_instance = MagicMock()
+            mock_api_instance.get_player.side_effect = [
+                NotFoundError("Not found"),
+                None,
+            ]
+
+            with patch("icetime.cli.api", mock_api_instance):
+                result = self.runner.invoke(
+                    app, ["get-players", "--output-path", temp_dir, "--quiet"]
+                )
+
+            assert result.exit_code == 0
+            assert mock_api_instance.get_player.call_count == 2
+
+    @pytest.mark.unit
+    def test_get_players_handles_general_error(self):
+        """Test get_players exits with error on general API failures."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            rosters = [{"team_id": 1, "player_id": 123}]
+            Path(temp_dir, "rosters.json").write_bytes(json.dumps(rosters).encode())
+
+            mock_api_instance = MagicMock()
+            mock_api_instance.get_player.side_effect = Exception("API Error")
+
+            with patch("icetime.cli.api", mock_api_instance):
+                result = self.runner.invoke(
+                    app, ["get-players", "--output-path", temp_dir, "--quiet"]
+                )
+
+            assert result.exit_code == 1
+            assert "Error fetching player 123: API Error" in result.stderr
+
+    @pytest.mark.unit
+    @patch("icetime.cli.get_rosters")
+    def test_get_players_fetches_rosters_when_missing(self, mock_get_rosters):
+        """Test get_players calls get_rosters first when rosters.json is absent."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+
+            def create_rosters(season, quiet, output_path):
+                Path(output_path, "rosters.json").write_bytes(
+                    json.dumps([{"team_id": 1, "player_id": 123}]).encode()
+                )
+
+            mock_get_rosters.side_effect = create_rosters
+            mock_api_instance = MagicMock()
+            mock_api_instance.get_player.return_value = None
+
+            with patch("icetime.cli.api", mock_api_instance):
+                result = self.runner.invoke(
+                    app,
+                    [
+                        "get-players",
+                        "--season",
+                        "20232024",
+                        "--output-path",
+                        temp_dir,
+                        "--quiet",
+                    ],
+                )
+
+            assert result.exit_code == 0
+            mock_get_rosters.assert_called_once_with(20232024, True, temp_dir)
+            mock_api_instance.get_player.assert_called_once_with(123)
 
 
 class TestCLIIntegration:

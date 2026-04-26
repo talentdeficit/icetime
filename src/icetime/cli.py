@@ -5,8 +5,8 @@ from icetime.db import load_to_sqlite
 from icetime.report import reporter
 from icetime import __app_name__, __version__
 from pydantic import TypeAdapter
-from typing import List, Dict
-from icetime.models import Team, Game, Season, GameResult, Shift
+from typing import List, Dict, Optional
+from icetime.models import Team, Game, Season, GameResult, Shift, Player
 
 app = typer.Typer()
 api = StatsApi()
@@ -249,6 +249,73 @@ def get_rosters(
 
 
 @app.command()
+def get_players(
+    season: Optional[int] = typer.Option(
+        None,
+        "--season",
+        help="Season to fetch rosters for (required if rosters.json not found)",
+    ),
+    quiet: bool = typer.Option(
+        False, "--quiet", "-q", help="Disable all stdout output"
+    ),
+    output_path: str = typer.Option(
+        "./data", "--output-path", help="Directory to save output files"
+    ),
+) -> None:
+    """Get all players referenced in team rosters."""
+    rosters_file = Path(output_path) / "rosters.json"
+
+    if not rosters_file.exists():
+        if season is None:
+            typer.echo(
+                "Error: --season is required when rosters.json is not found", err=True
+            )
+            raise typer.Exit(1)
+        get_rosters(season, quiet, output_path)
+
+    try:
+        with open(rosters_file, "rb") as f:
+            roster_entries = TypeAdapter(List[Dict[str, object]]).validate_json(
+                f.read()
+            )
+    except Exception as e:
+        typer.echo(f"Error reading rosters.json: {e}", err=True)
+        raise typer.Exit(1)
+
+    player_ids = sorted({int(entry["player_id"]) for entry in roster_entries})
+
+    with reporter(quiet) as progress:
+        try:
+            task = progress.add_task(
+                description="Processing get-players", total=len(player_ids)
+            )
+
+            players = []
+            for player_id in player_ids:
+                try:
+                    player = api.get_player(player_id)
+                    if player:
+                        players.append(player)
+                except NotFoundError:
+                    pass
+                except Exception as e:
+                    typer.echo(f"Error fetching player {player_id}: {e}", err=True)
+                    raise typer.Exit(1)
+                progress.update(task, advance=1)
+
+            Path(output_path).mkdir(parents=True, exist_ok=True)
+
+            with open(Path(output_path) / "players.json", "wb") as f:
+                f.write(TypeAdapter(List[Player]).dump_json(players, indent=2))
+
+        except typer.Exit:
+            raise
+        except Exception as e:
+            typer.echo(f"Error fetching players: {e}", err=True)
+            raise typer.Exit(1)
+
+
+@app.command()
 def get_all(
     season: int = typer.Option(..., "--season", help="Season to filter games by"),
     quiet: bool = typer.Option(
@@ -265,6 +332,7 @@ def get_all(
     get_pbp(season, quiet, output_path)
     get_shifts(season, quiet, output_path)
     get_rosters(season, quiet, output_path)
+    get_players(None, quiet, output_path)
 
 
 @app.command()

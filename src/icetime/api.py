@@ -1,3 +1,4 @@
+import time
 import requests
 from functools import lru_cache
 from typing import List, Optional
@@ -15,15 +16,40 @@ class StatsApi:
     """NHL Stats API client for fetching hockey data."""
 
     def __init__(
-        self, stats_base_url: str = STATS_BASE_URL, web_base_url: str = WEB_BASE_URL
+        self,
+        stats_base_url: str = STATS_BASE_URL,
+        web_base_url: str = WEB_BASE_URL,
+        request_delay: float = 0.1,
     ):
         self.session = requests.Session()
         self.__stats_base_url = stats_base_url
         self.__web_base_url = web_base_url
+        self.__request_delay = request_delay
+
+    def _get(self, url, **kwargs):
+        if self.__request_delay:
+            time.sleep(self.__request_delay)
+        backoff = 2
+        for attempt in range(10):
+            try:
+                response = self.session.get(url, **kwargs)
+            except requests.exceptions.ConnectionError:
+                if attempt == 9:
+                    raise
+                time.sleep(backoff)
+                backoff *= 2
+                continue
+            if response.status_code != 429:
+                response.raise_for_status()
+                return response
+            retry_after = max(int(response.headers.get("Retry-After", 0)), backoff)
+            time.sleep(retry_after)
+            backoff *= 2
+        response.raise_for_status()
+        return response
 
     def _fetch_sorted_list(self, url: str, model_class) -> list:
-        response = self.session.get(url)
-        response.raise_for_status()
+        response = self._get(url)
         data = response.json()
         items = data.get("data", [])
         if not isinstance(items, list):
@@ -59,8 +85,7 @@ class StatsApi:
         url = f"{self.__web_base_url}/gamecenter/{game_id}/play-by-play"
 
         try:
-            response = self.session.get(url)
-            response.raise_for_status()
+            response = self._get(url)
             data = response.json()
 
             return GameResult(**data)
@@ -77,8 +102,7 @@ class StatsApi:
         params = {"cayenneExp": f"gameId={game_id}"}
 
         try:
-            response = self.session.get(url, params=params)
-            response.raise_for_status()
+            response = self._get(url, params=params)
             data = response.json()
 
             # Convert to list of Shift models
@@ -102,8 +126,7 @@ class StatsApi:
         url = f"{self.__web_base_url}/player/{player_id}/landing"
 
         try:
-            response = self.session.get(url)
-            response.raise_for_status()
+            response = self._get(url)
             data = response.json()
 
             return Player(**data)
@@ -120,8 +143,7 @@ class StatsApi:
         url = f"{self.__web_base_url}/roster/{team_abbrev}/{season}"
 
         try:
-            response = self.session.get(url)
-            response.raise_for_status()
+            response = self._get(url)
             data = response.json()
 
             # Transform the complex roster data to just player IDs
