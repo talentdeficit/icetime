@@ -1,6 +1,7 @@
 import typer
 from pathlib import Path
 from icetime.api import StatsApi, NotFoundError
+from icetime.db import load_to_sqlite
 from icetime.report import reporter
 from icetime import __app_name__, __version__
 from pydantic import TypeAdapter
@@ -264,6 +265,28 @@ def get_all(
     get_pbp(season, quiet, output_path)
     get_shifts(season, quiet, output_path)
     get_rosters(season, quiet, output_path)
+
+
+@app.command()
+def to_sqlite(
+    input_path: str = typer.Option(
+        "./data", "--input-path", help="Directory with JSON data files"
+    ),
+    output: str = typer.Option(
+        "./icetime.db", "--output", help="SQLite output file path"
+    ),
+    quiet: bool = typer.Option(
+        False, "--quiet", "-q", help="Disable all stdout output"
+    ),
+) -> None:
+    """Convert JSON data files to a SQLite database."""
+    try:
+        load_to_sqlite(input_path, output)
+        if not quiet:
+            typer.echo(f"SQLite database written to {output}")
+    except Exception as e:
+        typer.echo(f"Error creating SQLite database: {e}", err=True)
+        raise typer.Exit(1)
 
 
 @app.command()
