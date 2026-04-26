@@ -11,7 +11,9 @@ app = typer.Typer()
 api = StatsApi()
 
 
-def _save_list(quiet, output_path, task_name, fetch_fn, filename, model_type, error_label):
+def _save_list(
+    quiet, output_path, task_name, fetch_fn, filename, model_type, error_label
+):
     with reporter(quiet) as progress:
         try:
             task = progress.add_task(description=f"Processing {task_name}", total=None)
@@ -43,7 +45,9 @@ def get_teams(
     ),
 ) -> None:
     """List all NHL teams."""
-    _save_list(quiet, output_path, "get-teams", api.get_teams, "teams.json", Team, "teams")
+    _save_list(
+        quiet, output_path, "get-teams", api.get_teams, "teams.json", Team, "teams"
+    )
 
 
 @app.command()
@@ -56,7 +60,9 @@ def get_games(
     ),
 ) -> None:
     """List all NHL games."""
-    _save_list(quiet, output_path, "get-games", api.get_games, "games.json", Game, "games")
+    _save_list(
+        quiet, output_path, "get-games", api.get_games, "games.json", Game, "games"
+    )
 
 
 @app.command()
@@ -69,7 +75,15 @@ def get_seasons(
     ),
 ) -> None:
     """List all NHL seasons."""
-    _save_list(quiet, output_path, "get-seasons", api.get_seasons, "seasons.json", Season, "seasons")
+    _save_list(
+        quiet,
+        output_path,
+        "get-seasons",
+        api.get_seasons,
+        "seasons.json",
+        Season,
+        "seasons",
+    )
 
 
 @app.command()
